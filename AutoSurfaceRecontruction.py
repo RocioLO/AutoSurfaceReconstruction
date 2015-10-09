@@ -3,17 +3,18 @@ import unittest
 from __main__ import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
 import logging
+import numpy as np
 
 import time
 
-class AutoSurfaceRecontruction(ScriptedLoadableModule):
+class autoSurfaceReconstruction(ScriptedLoadableModule):
   """Uses ScriptedLoadableModule base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "AutoSurfaceRecontruction" # TODO make this more human readable by adding spaces
+    self.parent.title = "autoSurfaceReconstruction" # TODO make this more human readable by adding spaces
     self.parent.categories = ["Examples"]
     self.parent.dependencies = []
     self.parent.contributors = ["John Doe (AnyWare Corp.)"] # replace with "Firstname Lastname (Organization)"
@@ -26,17 +27,17 @@ class AutoSurfaceRecontruction(ScriptedLoadableModule):
     and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
 """ # replace with organization, grant and thanks.
 
-class AutoSurfaceRecontructionWidget(ScriptedLoadableModuleWidget):
+class autoSurfaceReconstructionWidget(ScriptedLoadableModuleWidget):
 
   def setup(self):
-    self.AutoSurfaceRecontructionLogic = AutoSurfaceRecontructionLogic() 
+    self.autoSurfaceReconstructionLogic = autoSurfaceReconstructionLogic() 
   
     ScriptedLoadableModuleWidget.setup(self)
 
     # Instantiate and connect widgets ...
 
     # Icons stuff
-    self.moduleDirectoryPath = slicer.modules.autosurfacerecontruction.path.replace("AutoSurfaceRecontruction.py","")
+    self.moduleDirectoryPath = slicer.modules.autosurfacereconstruction.path.replace("PointRecorder.py","")
     self.playIcon = qt.QIcon(self.moduleDirectoryPath + '/Resources/Icons/playIcon.png')
     self.stopIcon = qt.QIcon(self.moduleDirectoryPath + '/Resources/Icons/stopIcon.png')
     self.recordIcon = qt.QIcon(self.moduleDirectoryPath + '/Resources/Icons/recordIcon.png')
@@ -53,10 +54,6 @@ class AutoSurfaceRecontructionWidget(ScriptedLoadableModuleWidget):
     # Layout within the dummy collapsible button
     parametersFormLayout = qt.QFormLayout(parametersCollapsibleButton)
 
-    pointSetProcessingCollapsibleButton = ctk.ctkCollapsibleButton()
-    pointSetProcessingCollapsibleButton.text = "Automatic Surface Reconstruction"
-    self.layout.addWidget(pointSetProcessingCollapsibleButton)
-    pointSetProcessingFormLayout = qt.QFormLayout(pointSetProcessingCollapsibleButton)
     #
     # input transform selector
     #
@@ -119,83 +116,46 @@ class AutoSurfaceRecontructionWidget(ScriptedLoadableModuleWidget):
     self.singlePointCheckBox = qt.QCheckBox('Single Measurements')
     self.singlePointCheckBox.checked = False
     self.singlePointCheckBox.enabled = False
-    hBoxCheckBoxes.addWidget(self.singlePointCheckBox) 
-
-
-    # Input model
-
-    self.modelSelector = slicer.qMRMLNodeComboBox()
-    self.modelSelector.nodeTypes = ( ("vtkMRMLModelNode"), "" )
-    self.modelSelector.selectNodeUponCreation = True
-    self.modelSelector.addEnabled = False
-    self.modelSelector.removeEnabled = False
-    self.modelSelector.noneEnabled = False
-    self.modelSelector.showHidden = False
-    self.modelSelector.showChildNodeTypes = False
-    self.modelSelector.setMRMLScene( slicer.mrmlScene )
-    self.modelSelector.setToolTip( "Pick the input to the algorithm." )
-    pointSetProcessingFormLayout.addRow("Input Model: ", self.modelSelector) 
-
-    self.nbrOfPointsLabel = qt.QLabel('Number of Points in Input Model: - ')
-    pointSetProcessingFormLayout.addRow(self.nbrOfPointsLabel)
-
-    self.inputPointSizeSlider = ctk.ctkSliderWidget()
-    self.inputPointSizeSlider.setDecimals(0)
-    self.inputPointSizeSlider.singleStep = 1
-    self.inputPointSizeSlider.minimum = 1
-    self.inputPointSizeSlider.maximum = 10
-    self.inputPointSizeSlider.value = 1
-    pointSetProcessingFormLayout.addRow('Input Model Point Size: ', self.inputPointSizeSlider)
-
-    self.vtkCalculateSurfaceButton = qt.QPushButton("Exit Surface")
-    self.vtkCalculateSurfaceButton.enabled = True
-    self.vtkCalculateSurfaceButton.checkable = True
-    pointSetProcessingFormLayout.addRow(self.vtkCalculateSurfaceButton)
-    
+    hBoxCheckBoxes.addWidget(self.singlePointCheckBox)  
     
     # connections
     self.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.recordButton.connect('clicked(bool)', self.onRecordClicked)
     self.resetButton.connect('clicked(bool)', self.onResetClicked)
     self.saveButton.connect('clicked(bool)', self.onSaveClicked)
-    self.vtkCalculateSurfaceButton.connect('clicked(bool)', self.onCalculateSurface)
-    self.inputPointSizeSlider.connect('valueChanged (double)', self.onInputPointSliderModified)
+    
     # Add vertical spacer
     self.layout.addStretch(1)
 
     # Refresh Apply button state
     self.onSelect()
 
-    self.AutoSurfaceRecontructionLogic.setLayout()
-
-  def onInputPointSliderModified(self, value):
-    inputModelNode = self.modelSelector.currentNode()
-    if inputModelNode:
-      inputModelNode.GetModelDisplayNode().SetPointSize(value)
+    self.autoSurfaceReconstructionLogic.setLayout()
     
   def onSaveClicked(self):
-    self.AutoSurfaceRecontructionLogic.saveData()
+    self.autoSurfaceReconstructionLogic.saveData()
     
   def onRecordClicked(self):   
-    if not self.AutoSurfaceRecontructionLogic.observedNode:
-      self.AutoSurfaceRecontructionLogic.removeUpdateObserver()
-      self.AutoSurfaceRecontructionLogic.addUpdateObserver(self.modelSelector.currentNode(), self.fixedSelector.currentNode())
-      self.AutoSurfaceRecontructionLogic.clearPointsInPolyData()
+    if not self.autoSurfaceReconstructionLogic.observedNode:
+      self.autoSurfaceReconstructionLogic.removeUpdateObserver()
+      self.autoSurfaceReconstructionLogic.addUpdateObserver(self.inputSelector.currentNode(), self.fixedSelector.currentNode())
+      self.autoSurfaceReconstructionLogic.clearPointsInPolyData()
     if self.singlePointCheckBox.checked:
-      self.AutoSurfaceRecontructionLogic.acquireSingleMeasurement(self.fixedSelector.currentNode())
+      self.autoSurfaceReconstructionLogic.acquireSingleMeasurement(self.fixedSelector.currentNode())
       self.recordButton.checked = False
       return    
     if self.recordButton.checked:
-      self.AutoSurfaceRecontructionLogic.record = True
+      self.autoSurfaceReconstructionLogic.record = True
       self.enableWidgets(False)
     elif not self.recordButton.checked:
-      self.AutoSurfaceRecontructionLogic.record = False
+      self.autoSurfaceReconstructionLogic.record = False
       self.enableWidgets(True)
     
   def onResetClicked(self):
     reply = qt.QMessageBox.question(slicer.util.mainWindow(), 'Reset recorded points', 'Are you sure you want to reset?', qt.QMessageBox.Yes, qt.QMessageBox.No)
     if reply == qt.QMessageBox.Yes:
-      self.AutoSurfaceRecontructionLogic.reset = True
+      self.autoSurfaceReconstructionLogic.reset = True
+      self.autoSurfaceReconstructionLogic.pointCounter = 0
     else:
       return    
 
@@ -207,17 +167,12 @@ class AutoSurfaceRecontructionWidget(ScriptedLoadableModuleWidget):
     self.recordButton.enabled = self.inputSelector.currentNode()
     self.resetButton.enabled = self.inputSelector.currentNode()
     if self.inputSelector.currentNode():
-      self.AutoSurfaceRecontructionLogic.record = False
-      self.AutoSurfaceRecontructionLogic.removeUpdateObserver()      
-      self.AutoSurfaceRecontructionLogic.clearPointsInPolyData()
+      self.autoSurfaceReconstructionLogic.record = False
+      self.autoSurfaceReconstructionLogic.removeUpdateObserver()      
+      self.autoSurfaceReconstructionLogic.clearPointsInPolyData()
       self.recordButton.enabled = True
 
-  def onCalculateSurface(self):
-    inputModel = self.modelSelector.currentNode()
-    self.AutoSurfaceRecontructionLogic.calculateSurface(inputModel)
-
-
-class AutoSurfaceRecontructionLogic(ScriptedLoadableModuleLogic):
+class autoSurfaceReconstructionLogic(ScriptedLoadableModuleLogic):
  
   def __init__(self):
     self.observedNode = None
@@ -226,8 +181,9 @@ class AutoSurfaceRecontructionLogic(ScriptedLoadableModuleLogic):
     self.recordedModelNode = None
     self.reset = False       
     self.fixedNode = None
-    
-
+    self.pointCounter = 0
+   # self.pointCounter = 30
+  ############## Record
   def addUpdateObserver(self, inputNode, fixedNode):
     self.observedNode = inputNode
     self.fixedNode = fixedNode
@@ -238,7 +194,7 @@ class AutoSurfaceRecontructionLogic(ScriptedLoadableModuleLogic):
       recordedPolyData = vtk.vtkPolyData()
       recordedPolyData.SetPoints(recordedPoints)
       recordedPolyData.SetVerts(recordedVertices)
-      self.recordedModelNode = self.addModelToScene(recordedPolyData, "RecordedModel")    
+      self.recordedModelNode = self.addModelToScene(recordedPolyData, "RecordedModel", [0, 1, 0])    
       self.recordedModelNode.GetModelDisplayNode().SetPointSize(3)
     if self.outputObserverTag == -1:
       self.outputObserverTag = inputNode.AddObserver('ModifiedEvent', self.updateSceneCallback)
@@ -266,14 +222,53 @@ class AutoSurfaceRecontructionLogic(ScriptedLoadableModuleLogic):
     ras[2] = m.GetElement(2, 3)   
     self.addPointToPolyData(self.recordedModelNode.GetPolyData(), ras)
     
-  def addPointToPolyData(self, polyData, ras):      
+  def addPointToPolyData(self, polyData, ras):     
+
+    print "nuevo punto!!!"
+    self.pointCounter = self.pointCounter + 1;
     pid = vtk.vtkIdList()
     pid.SetNumberOfIds(1);
     temp = polyData.GetPoints().InsertNextPoint(ras[0], ras[1], ras[2])    
     pid.SetId(0, temp)    
     polyData.GetVerts().InsertNextCell(pid)        
     polyData.Modified() 
+
     
+    # check every 30 recorded points if the standard deviation is low
+    if (self.pointCounter%30) == 0:
+      
+      sd = self.testStandardDeviation(polyData)
+      if sd < 1:
+
+        self.record = False
+        if self.pointCounter>100:
+          self.calculateSurface(self.recordedModelNode)
+        print "El standard deviation es bajo ya no se mueve"
+
+
+  def testStandardDeviation(self, polyData):
+    print "ya hay guardados 15 puntos!"
+        
+    coord = [0,0,0]
+    for i in range(30):
+      ras = [0,0,0] 
+
+      polyData.GetPoint(self.pointCounter - 30 + i,ras) #save coordinates in ras. 
+
+      if i == 0:
+        coord = ras
+      else:
+        coord = np.vstack((coord,ras))
+
+    sd0 = np.std(coord, axis=0)
+    sdMean = np.mean(sd0)
+
+    print coord
+    print "El standard deviation es: {}".format(sdMean)
+    print "el pointCounter es: {}".format(self.pointCounter)
+
+    return sdMean
+
   def clearPointsInPolyData(self,): 
     if self.recordedModelNode:
       newPoints = vtk.vtkPoints()
@@ -284,14 +279,17 @@ class AutoSurfaceRecontructionLogic(ScriptedLoadableModuleLogic):
       self.recordedModelNode.GetPolyData().DeepCopy(newPolyData)     
       self.recordedModelNode.GetPolyData().Modified()  
       
-  def addModelToScene(self, polyData, name):
+  def addModelToScene(self, polyData, name, color):
+
     scene = slicer.mrmlScene
     node = slicer.vtkMRMLModelNode()
     node.SetScene(scene)
     node.SetName(name)
-    node.SetAndObservePolyData(polyData)
+    if polyData is not None:
+      node.SetAndObservePolyData(polyData)
+
     modelDisplay = slicer.vtkMRMLModelDisplayNode()
-    modelDisplay.SetColor(0, 1, 0)
+    modelDisplay.SetColor(color)
     modelDisplay.SetScene(scene)
     scene.AddNode(modelDisplay)
     node.SetAndObserveDisplayNodeID(modelDisplay.GetID())
@@ -308,7 +306,7 @@ class AutoSurfaceRecontructionLogic(ScriptedLoadableModuleLogic):
     
   def createShareDirectory(self): 
     date = time.strftime("%Y-%m-%d")        
-    shareDirPath = slicer.modules.autosurfacereconstruction.path.replace("AutoSurfaceRecontruction.py","") + 'Output/' + date
+    shareDirPath = slicer.modules.autosurfacereconstruction.path.replace("autoSurfaceReconstruction.py","") + 'Output/' + date
     if not os.path.exists(shareDirPath):
       os.makedirs(shareDirPath)   
     return shareDirPath    
@@ -338,48 +336,30 @@ class AutoSurfaceRecontructionLogic(ScriptedLoadableModuleLogic):
     for zoom in range(zoomFactor):
       threeDView.zoomIn()    
 
-  ####### Calculate Surface 
-
   def calculateSurface(self, inputModel):
-    
-    ## Esta funcion es la que llama la funcionalidad siguiente para hallar las normales
-    #logic.vtkPointSetNormalEstimation(self.modelSelector.currentNode(), self.modeTypeComboBox.currentIndex, self.numberOfNeighborsSlider.value, self.radiusSlider.value, self.knnSlider.value, self.graphTypeComboBox.currentIndex, self.runtimeLabel)
     
     outputModelNode = slicer.util.getNode('ComputedNormals')
     
     if not outputModelNode:
-      outputModelNode = self.createModelNode('ComputedNormals', [0, 0, 1])  
+      outputModelNode = self.addModelToScene(None, 'ComputedNormals', [0, 0, 1])  
       outputModelNode.SetDisplayVisibility(False)
     orientatedGlyphs = slicer.util.getNode('OrientatedGlyphs')
     if not orientatedGlyphs:
-      orientatedGlyphs = self.createModelNode('OrientatedGlyphs', [0, 1, 0])        
+      orientatedGlyphs = self.addModelToScene(None, 'OrientatedGlyphs', [0, 1, 0])   #green     
     
     slicer.modules.pointsetprocessingcpp.logic().Apply_vtkPointSetNormalEstimation(inputModel, outputModelNode, orientatedGlyphs, 1, 4, 50.00, 70, 1, True, True)
     orientatedGlyphsNode = slicer.util.getNode('orientatedGlyphs')
-   # if orientatedGlyphsNode:
-    #  orientatedGlyphsNode.SetDisplayVisibility(visible)
 
-    ##Esta funcion es la que llama la reconstruccion de la superficie, pero la funcionalidad es la siguiente
-    #logic.vtkPoissionReconstruction(self.depthSlider.value, self.scaleSlider.value, self.solverDivideSlider.value, self.isoDivideSlider.value, self.samplesPerNodeSlider.value, self.confidenceComboBox.currentIndex, self.verboseComboBox.currentIndex, self.runtimeLabel)
     inputModelNode = slicer.util.getNode('ComputedNormals')
     outputModelNode = slicer.util.getNode('ComputedSurface')
+
     if not outputModelNode:
-      outputModelNode = self.createModelNode('ComputedSurface', [1, 0, 0])
+      outputModelNode = self.addModelToScene(None, 'ComputedSurface', [1, 0, 0])#red
     
+    # call to cpp function from slicerPontSetProccesing module
     slicer.modules.pointsetprocessingcpp.logic().Apply_vtkPoissionReconstruction(inputModelNode, outputModelNode, 6, 1.25, 8, 8, 1, False, False, True)
     
     return True
 
 
-  def createModelNode(self, name, color):
-    scene = slicer.mrmlScene
-    modelNode = slicer.vtkMRMLModelNode()
-    modelNode.SetScene(scene)
-    modelNode.SetName(name)
-    modelDisplay = slicer.vtkMRMLModelDisplayNode()
-    modelDisplay.SetColor(color)
-    modelDisplay.SetScene(scene)
-    scene.AddNode(modelDisplay)
-    modelNode.SetAndObserveDisplayNodeID(modelDisplay.GetID())
-    scene.AddNode(modelNode)  
-    return modelNode
+ 
